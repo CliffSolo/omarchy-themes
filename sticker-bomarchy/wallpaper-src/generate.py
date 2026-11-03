@@ -1,0 +1,212 @@
+#!/usr/bin/env python3
+"""Sticker-bomb "Omarchy" wallpaper in the Dracula palette.
+
+Usage: generate.py [hero|quiet|solo|bright] [seed] [out.png]
+  hero    (default) bold stickers with black keylines and neon edges, plus one full-size word
+  quiet   the same stickers, far fewer of them, with the background showing between
+  solo    the plain Dracula background with a big, level green pixel sticker edged in pink
+  bright  the original dense sticker bomb with white die-cut edges
+Requires ImageMagick 7 (`magick`). Fonts live in ./fonts.
+"""
+import os
+import random
+import subprocess
+import sys
+import tempfile
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+FONTS = sorted((HERE / "fonts").glob("*.ttf"))
+W, H = 3840, 2160
+WORD = "Omarchy"
+
+BG = "#282a36"
+DARK = "#191a21"
+WHITE = "#f8f8f2"
+SELECTION = "#44475a"
+COLORS = ["#bd93f9", "#50fa7b", "#ff79c6", "#f1fa8c", "#ff5555", "#8be9fd"]
+
+# Gap filling: the canvas is sampled on a CELL px grid; a cell counts as bare
+# when more than BARE of it is darker than LUMA (background or shadow).
+CELL, LUMA, BARE, FILL_PASSES = 60, "20%", 0.45, 6
+
+VARIANTS = {"hero": "1-sticker-bomb.png", "quiet": "sticker-bomb-quiet.png",
+            "solo": "2-sticker-solo.png", "bright": "sticker-bomb-bright.png"}
+args = sys.argv[1:]
+VARIANT = args.pop(0) if args and args[0] in VARIANTS else "hero"
+DARK_MODE = VARIANT != "bright"
+seed = int(args[0]) if args else 1897  # year Dracula was published
+default_out = VARIANTS[VARIANT]
+out = Path(args[1]) if len(args) > 1 else HERE.parent / "backgrounds" / default_out
+# Dark variant: rings drawn this much thicker, and sticker size ranges for the
+# base layer and the gap fill.
+THICK = 1.0
+BASE_W, FILL_W = ((1000, 1900), (650, 1100)) if DARK_MODE else ((480, 1250), (420, 850))
+# Hairline, inline and distressed faces read as hollow on dark slabs, so the
+# dark variant sticks to solid, heavy fonts.
+THIN_FONTS = {"BungeeShade", "Creepster", "FasterOne", "Frijole", "Monoton",
+              "Nosifer", "RubikGlitch", "UnifrakturMaguntia", "VT323"}
+if DARK_MODE:
+    FONTS = [f for f in FONTS if f.stem.split("-")[0] not in THIN_FONTS]
+rng = random.Random(seed)
+# One ImageMagick thread per process; parallelism comes from rendering stickers concurrently.
+ENV = {**os.environ, "MAGICK_THREAD_LIMIT": "1"}
+
+
+def magick(*args, raw=False):
+    r = subprocess.run(["magick", *map(str, args)], check=True, capture_output=True, env=ENV)
+    return r.stdout if raw else r.stdout.decode()
+
+
+def text_width(font, pointsize=100):
+    return int(magick("-background", "none", "-font", font, "-pointsize", pointsize, f"label:{WORD}", "-format", "%w", "info:"))
+
+
+def style():
+    """Pick text fill, optional glyph stroke, and halo rings (inner → outer)."""
+    c, c2 = rng.sample(COLORS, 2)
+    if DARK_MODE:
+        return rng.choice([
+            (c, None, [(7, DARK), (6, c)]),              # neon text, black keyline, neon edge
+            (c, None, [(6, DARK), (4, SELECTION), (5, c2)]),  # neon text, two-tone edge
+            (WHITE, None, [(7, DARK), (6, c)]),          # light text, neon edge
+            (c, DARK, [(8, SELECTION), (5, DARK)]),      # outlined neon on grey
+            (DARK, c, [(8, c), (4, DARK)]),              # black letters on a neon die-cut
+        ])
+    return rng.choice([
+        (c, None, [(14, WHITE)]),                    # classic die-cut
+        (c, None, [(10, DARK), (10, WHITE)]),        # die-cut with dark keyline
+        (BG, None, [(26, c), (12, WHITE)]),          # dark text on color blob
+        (WHITE, None, [(24, c), (10, DARK)]),        # light text on color blob
+        (c, None, [(20, DARK), (10, c2)]),           # neon on black
+        (c, c2, [(16, BG), (10, WHITE)]),            # two-tone lettering
+        (DARK, c, [(18, c2), (10, WHITE)]),          # outlined letters on color
+    ])
+
+
+def sticker_spec(width, cx, cy, angle=None):
+    """Draw every random choice up front so parallel rendering stays reproducible."""
+    font = rng.choice(FONTS)
+    fill, stroke, rings = style()
+    return dict(font=font, width=width, fill=fill, stroke=stroke, rings=rings,
+                angle=rng.uniform(-28, 28) if angle is None else angle, cx=cx, cy=cy)
+
+
+def render(spec, path):
+    scale = spec["width"] / 900  # ring sizes are tuned for a ~900 px sticker
+    rings = [(max(3, round(r * scale * THICK)), col) for r, col in spec["rings"]]
+    pad = sum(r for r, _ in rings) + 40
+    pointsize = 100 * spec["width"] / widths[spec["font"]]
+
+    cmd = ["-background", "none", "-font", spec["font"], "-pointsize", f"{pointsize:.1f}", "-fill", spec["fill"]]
+    if spec["stroke"]:
+        cmd += ["-stroke", spec["stroke"], "-strokewidth", max(2, round(4 * scale))]
+    cmd += [f"label:{WORD}", "-bordercolor", "none", "-border", pad]
+    for i, (r, col) in enumerate(rings):
+        src = ["-clone", "0", "-alpha", "extract"] if i == 0 else [f"mpr:m{i - 1}"]
+        # Grow the previous mask by r px with a distance transform (100 units per px);
+        # unlike Dilate Disk:r, its cost doesn't grow with the radius.
+        cmd += ["(", *src, "-threshold", "50%", "-negate", "-morphology", "Distance", "Euclidean:4",
+                "-level", f"{r * 100 - 50},{r * 100 + 50}", "-negate", "-write", f"mpr:m{i}",
+                "-background", col, "-alpha", "shape", ")"]
+    shadow = max(4, round(10 * scale))
+    cmd += ["-reverse", "-background", "none", "-layers", "merge",
+            "(", "+clone", "-background", "#08070c", "-shadow", f"65x{shadow}+{shadow}+{round(shadow * 1.4)}", ")",
+            "+swap", "-background", "none", "-layers", "merge", "+repage",
+            "-rotate", f"{spec['angle']:.1f}", "-trim", "+repage", path]
+    magick(*cmd)
+    w, h = map(int, magick(path, "-format", "%w %h", "info:").split())
+    return ["-geometry", f"{spec['cx'] - w // 2:+d}{spec['cy'] - h // 2:+d}", "-composite"]
+
+
+def paint(canvas, specs, tmp, tag):
+    paths = [Path(tmp) / f"{tag}-{i:03d}.png" for i in range(len(specs))]
+    with ThreadPoolExecutor(os.cpu_count()) as pool:
+        geoms = list(pool.map(render, specs, paths))
+    layers = [arg for p, g in zip(paths, geoms) for arg in (p, *g)]
+    magick(canvas, *layers, canvas)
+
+
+def bare_cells(canvas):
+    """Cells sorted barest-first, as (bareness, x, y) pixel centers."""
+    cols, rows = W // CELL, H // CELL
+    # Dark stickers are as dark as the background, so there a cell is bare when
+    # it is the background color itself; otherwise it is bare when it is dark.
+    find = (["-fuzz", "4%", "-fill", "white", "-opaque", BG, "-fill", "black", "+opaque", "white"]
+            if DARK_MODE else ["-colorspace", "gray", "-threshold", LUMA, "-negate"])
+    data = magick(canvas, *find, "-colorspace", "gray",
+                  "-scale", f"{cols}x{rows}!", "-depth", "8", "gray:-", raw=True)
+    cells = [(v / 255, (i % cols) * CELL + CELL // 2, (i // cols) * CELL + CELL // 2)
+             for i, v in enumerate(data) if v / 255 > BARE]
+    return sorted(cells, reverse=True)
+
+
+widths = {f: text_width(f) for f in FONTS}
+
+# Jittered, staggered grid so the whole canvas gets covered, then a random
+# scatter on top for the layered sticker-bomb look.
+centers = []
+row_h, col_w = (300, 1000) if DARK_MODE else (215, 640)
+for r, y in enumerate(range(-60, H + 120, row_h)):
+    for x in range(-200 + (r % 2) * col_w // 2, W + 300, col_w):
+        centers.append((x + rng.randint(-160, 160), y + rng.randint(-80, 80)))
+rng.shuffle(centers)
+centers += [(rng.randint(0, W), rng.randint(0, H)) for _ in range(len(centers) // 2)]
+
+with tempfile.TemporaryDirectory() as tmp:
+    canvas = Path(tmp) / "canvas.png"
+    magick("-size", f"{W}x{H}", f"xc:{BG}", canvas)
+
+    if VARIANT == "solo":
+        # The green pixel-font sticker from the hero wallpaper with a pink edge,
+        # level and centered like Omarchy's own plain logo wallpapers.
+        font = next(f for f in FONTS if f.stem.startswith("PressStart2P"))
+        green, pink = "#50fa7b", "#ff79c6"
+        paint(canvas, [dict(font=font, width=2900, fill=green, stroke=None,
+                            rings=[(6, DARK), (6, pink)], angle=0, cx=W // 2, cy=H // 2)], tmp, "solo")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        magick(canvas, out)
+        sys.exit(print(f"1 sticker → {out}"))
+
+    if VARIANT == "quiet":
+        # A loose scatter: a wide jittered grid with about 30% of the spots
+        # left empty, no gap filling, and the full-size word on top.
+        spots = [(x + rng.randint(-180, 180), y + rng.randint(-90, 90))
+                 for r, y in enumerate(range(80, H + 100, 400))
+                 for x in range(150 + (r % 2) * 500, W + 200, 1000)]
+        spots = [s for s in spots if rng.random() < 0.7]
+        paint(canvas, [sticker_spec(rng.randint(800, 1300), x, y) for x, y in spots], tmp, "quiet")
+        hero = sticker_spec(1900, W // 2, H // 2, angle=rng.uniform(-6, 6))
+        paint(canvas, [hero], tmp, "hero")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        magick(canvas, out)
+        sys.exit(print(f"{len(spots) + 1} stickers → {out}"))
+
+    paint(canvas, [sticker_spec(rng.randint(*BASE_W), x, y) for x, y in centers], tmp, "base")
+    total = len(centers)
+
+    # Patch whatever is still bare with smaller stickers centered on the gaps.
+    for n in range(FILL_PASSES):
+        picks = []
+        for _, x, y in bare_cells(canvas):
+            if all(abs(x - px) > 320 or abs(y - py) > 140 for px, py in picks):
+                picks.append((x, y))
+        print(f"fill pass {n + 1}: {len(picks)} gaps", flush=True)
+        if not picks:
+            break
+        paint(canvas, [sticker_spec(rng.randint(*FILL_W), x + rng.randint(-40, 40), y + rng.randint(-20, 20))
+                       for x, y in picks], tmp, f"fill{n}")
+        total += len(picks)
+
+    # Dark variant: one big, nearly level sticker on top, so the whole word shows.
+    if DARK_MODE:
+        hero = sticker_spec(1700, W // 2 + rng.randint(-500, 500), H // 2 + rng.randint(-250, 250),
+                            angle=rng.uniform(-8, 8))
+        paint(canvas, [hero], tmp, "hero")
+        total += 1
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    magick(canvas, out)
+
+print(f"{total} stickers → {out}")

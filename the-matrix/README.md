@@ -1,0 +1,116 @@
+# TheMatrix Theme for Omarchy
+
+Phosphor-green digital rain on void black — a terminal-hacker take on
+[the 1999 film](https://en.wikipedia.org/wiki/The_Matrix) for
+[Omarchy](https://omarchy.org).
+
+![Theme Preview](preview.png)
+
+## Installation
+
+```bash
+omarchy theme install https://github.com/CerealThriller/omarchy-the-matrix-theme
+```
+
+Or from the Omarchy menu (`Super + Space`): _Install > Style > Theme_, then
+paste the repository URL.
+
+Once installed, pick "TheMatrix" under _Style > Theme_.
+
+## What's Included
+
+- **Palette** (`colors.toml`) — terminals, Hyprland, the Omarchy shell, btop,
+  Neovim, VS Code, and the rest are generated from it.
+- **Backgrounds** — 15 total, cycle with `omarchy theme bg next`. The default
+  is an "OMARCHY" neon wordmark; the rest range across an empty neon room, a
+  digital portal ring, Earth from orbit, city skylines, a temple doorway, a
+  rainy street, a samurai helmet, and a bullet-time-style hallway. Most carry
+  short motivational captions baked into the image itself.
+- **Lock screen**: the password card's colors (text, placeholder, border,
+  error state) come from `colors.toml` automatically, same as everything
+  else. `unlock.png` is the art shown above that card — a retro CRT terminal
+  boot/login prompt, scanlines and phosphor glow included. If you use the
+  Lock Screen Explorer plugin, a live animated companion design is available
+  separately — see [Live Lock Screen](#live-lock-screen-lock-screen-explorer) below.
+- **Icons** (`icons.theme`)
+- **Screensaver**: a `THE MATRIX` ASCII banner for Omarchy's stock
+  screensaver (terminal text effects over ASCII art) — see
+  [Screensaver](#screensaver) below.
+
+## Fan / Motherboard RGB (OpenRGB)
+
+If you have OpenRGB-compatible hardware (ARGB motherboard headers, Corsair
+Lighting Node Pro, etc.), you can sync it to this theme's accent color with a
+small hook. Save this as `~/.config/omarchy/hooks/theme-set.d/openrgb-accent`
+and make it executable:
+
+```bash
+#!/bin/bash
+RGB_FILE="$HOME/.local/state/omarchy/current/theme/keyboard.rgb"
+if command -v openrgb >/dev/null 2>&1 && [[ -f $RGB_FILE ]]; then
+  hex=$(cat "$RGB_FILE")
+  hex="${hex#\#}"
+  if [[ $hex =~ ^[0-9A-Fa-f]{6}$ ]]; then
+    openrgb --noautoconnect --mode static --color "$hex" >/dev/null 2>&1 &
+  fi
+fi
+```
+
+It reads the theme's `keyboard.rgb` (already `00FF00` here) and pushes it to
+every OpenRGB-detected device on every theme change. Note: some ARGB LEDs
+render pure green (`00FF00`) with a slight cyan cast — that's the hardware,
+not the theme.
+
+## Live Lock Screen (Lock Screen Explorer)
+
+If you have the [Lock Screen Explorer](https://github.com/SirJul1337/omarchy-lock-explorer)
+plugin installed, `unlock.png` isn't used — instead you can use a live,
+animated companion design: real falling code behind a CRT terminal card,
+colored from this theme's palette automatically. It lives in its own repo,
+with install instructions:
+[omarchy-thematrix-lock-screen](https://github.com/CerealThriller/omarchy-thematrix-lock-screen).
+
+## Screensaver
+
+Omarchy's built-in screensaver runs animated terminal text effects
+([`ttfx`](https://github.com/ChrisBuilds/terminaltexteffects)) over an ASCII
+art banner at `~/.config/omarchy/branding/screensaver.txt`. Swap in this
+theme's banner to get a `THE MATRIX` logo dissolving/rebuilding in random
+effects instead of the stock Omarchy logo:
+
+```bash
+curl -o ~/.config/omarchy/branding/screensaver.txt \
+  https://raw.githubusercontent.com/CerealThriller/omarchy-the-matrix-theme/main/extras/screensaver/screensaver.txt
+```
+
+It takes effect the next time the screensaver launches — no restart needed.
+Idle timing (`idle.screensaver`, `idle.lock`) lives in
+`~/.config/omarchy/shell.json`, in seconds since idle began.
+
+If you have the [Screensaver Panel](https://github.com/brianirish/omarchy-screensaver-panel)
+plugin (`brianirish.screensaver`) installed, its bar panel gives you a GUI
+for idle timing, effect selection, and editing this artwork instead of
+hand-editing files.
+
+## Credits
+
+- **Concept**: a fan homage to [The Matrix](https://en.wikipedia.org/wiki/The_Matrix)
+  (1999, Warner Bros.). Not affiliated with or endorsed by Warner Bros.,
+  and no claim is made over the film's trademarks, characters, or imagery —
+  this theme only reuses a handful of short, iconic lines of dialogue and a
+  generic visual style (green falling code on black).
+- **Unlock art**: generated with AI assistance (Claude / Claude Code) from
+  scratch — no photos, film frames, or other artists' images were used as
+  source pixels.
+- **Backgrounds**: generated with ChatGPT.
+- **Screensaver banner** (`extras/screensaver/screensaver.txt`): plain text
+  art, generated with the [FIGlet](http://www.figlet.org/) "ANSI Shadow"
+  font.
+
+## License
+
+The configuration in this repo (`colors.toml`, the OpenRGB hook, and this
+README) is MIT licensed. Beyond that, no
+strong ownership claim is made over the AI-generated images themselves or
+over anything evoking The Matrix as a concept; use, remix, and redistribute
+this theme freely.

@@ -1,0 +1,121 @@
+# Hermarchy shell surfaces — solid, precise, low-noise.
+[bar]
+background = "#08090A"
+background-alpha = 1.0
+text = "#F1F1EC"
+active = "#61D6FF"
+scale-with-font = true
+size-horizontal = 28
+size-vertical = 30
+
+[hyprland]
+active-border = "#A5A7A7"
+active-border-foreground = "#61D6FF"
+
+[controls]
+normal-color = "#D5D5D0"
+normal-fill-alpha = 0.02
+normal-border = "#272B2F"
+normal-border-alpha = 1.0
+hover-cursor-color = "#F1F1EC"
+hover-cursor-fill-alpha = 0.05
+hover-cursor-border = "#606468"
+focus-color = "#F1F1EC"
+focus-fill-alpha = 0.06
+focus-border = "#A5A7A7"
+focus-border-width = 1
+selected-color = "#61D6FF"
+selected-fill-alpha = 0.18
+selected-border = "#61D6FF"
+selected-border-width = 1
+pressed-fill-alpha = 0.12
+selection-fill-alpha = 0.20
+
+[font]
+base-size = 12
+
+[popups]
+background = "#101214"
+background-alpha = 0.99
+text = "#F1F1EC"
+border = "#272B2F"
+border-alpha = 1.0
+
+[tooltip]
+background = "#16191C"
+background-alpha = 0.99
+text = "#F1F1EC"
+border = "#272B2F"
+border-alpha = 1.0
+
+[notifications]
+background = "#101214"
+background-alpha = 1.0
+text = "#F1F1EC"
+border = "#272B2F"
+border-alpha = 1.0
+countdown = "#61D6FF"
+
+[launcher]
+background = "#101214"
+background-alpha = 0.99
+text = "#F1F1EC"
+border = "#606468"
+border-alpha = 1.0
+scrim = "#08090A"
+scrim-alpha = 0.72
+selected-background = "#16191C"
+selected-background-alpha = 1.0
+selected-text = "#F1F1EC"
+selected-border = "#61D6FF"
+selected-border-alpha = 1.0
+selected-border-width = 1
+
+[menu]
+background = "#101214"
+background-alpha = 1.0
+text = "#F1F1EC"
+border = "#606468"
+border-alpha = 1.0
+scrim = "#08090A"
+scrim-alpha = 0.72
+selected-background = "#16191C"
+selected-background-alpha = 1.0
+selected-text = "#F1F1EC"
+selected-border = "#61D6FF"
+selected-border-alpha = 1.0
+selected-border-width = 1
+
+[polkit]
+background = "#101214"
+background-alpha = 1.0
+text = "#F1F1EC"
+text-error = "#E46E6E"
+border = "#606468"
+border-error = "#E46E6E"
+border-alpha = 1.0
+scrim = "#08090A"
+scrim-alpha = 0.78
+accent = "#61D6FF"
+
+[lock]
+background = "#08090A"
+background-alpha = 0.98
+text = "#F1F1EC"
+placeholder = "#606468"
+text-error = "#E46E6E"
+border = "#272B2F"
+border-active = "#61D6FF"
+border-error = "#E46E6E"
+border-alpha = 1.0
+selection = "#61D6FF"
+selection-alpha = 0.24
+
+[image-picker]
+scrim = "#08090A"
+scrim-alpha = 0.78
+text = "#F1F1EC"
+selected-border = "#61D6FF"
+selected-border-alpha = 1.0
+unselected-border = "#272B2F"
+unselected-border-alpha = 1.0
